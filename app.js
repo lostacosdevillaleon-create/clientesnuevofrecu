@@ -1,12 +1,11 @@
-// CÓDIGO PRINCIPAL DE LA APLICACIÓN - VERSIÓN MODIFICADA
+// CÓDIGO PRINCIPAL DE LA APLICACIÓN - VERSIÓN OPTIMIZADA
 
-// Datos en memoria (se sincronizarán con Supabase)
+// Datos en memoria
 let clients = [];
 let premiosConfig = [];
 let metricasData = {
     cobrosPremios: [],
-    totalClientes: 0,
-    totalPremiosCanjeados: 0
+    totalClientes: 0
 };
 
 // Credenciales de administrador
@@ -20,16 +19,21 @@ let busquedaActiva = false;
 let terminoBusqueda = '';
 let clientesFiltrados = [];
 
+// Variable para controlar la actualización automática
+let autoUpdateInterval = null;
+let isAdminLoggedIn = false;
+let lastUpdateTime = 0;
+const UPDATE_INTERVAL = 30000; // 30 segundos (en lugar de 10)
+
 // Inicialización cuando el DOM esté listo
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('🚀 DOM cargado, inicializando aplicación...');
+    console.log('🚀 DOM cargado, inicializando aplicación optimizada...');
     inicializarAplicacion();
 });
 
 function inicializarAplicacion() {
-    console.log('🔧 Inicializando aplicación VillaLeon...');
+    console.log('🔧 Inicializando aplicación VillaLeon optimizada...');
     
-    // Inicializar event listeners principales
     inicializarTabsPrincipales();
     inicializarLoginAdmin();
     inicializarCliente();
@@ -76,10 +80,9 @@ function inicializarLoginAdmin() {
         const username = document.getElementById('username').value;
         const password = document.getElementById('password').value;
         
-        console.log('Credenciales ingresadas:', { username, password });
-        
         if (username === adminCredentials.username && password === adminCredentials.password) {
             console.log('✅ Login exitoso');
+            isAdminLoggedIn = true;
             document.getElementById('admin-login').style.display = 'none';
             document.getElementById('admin-panel').style.display = 'block';
             showMessage('Sesión iniciada correctamente', 'success');
@@ -92,6 +95,10 @@ function inicializarLoginAdmin() {
                 console.error('Error cargando clientes:', error);
                 showMessage('Error cargando datos: ' + error.message, 'error');
             });
+
+            // Iniciar actualización automática (optimizada)
+            iniciarActualizacionAutomaticaOptimizada();
+            
         } else {
             console.log('❌ Login fallido');
             showMessage('Credenciales incorrectas. Usuario: admin, Contraseña: villaleon2023', 'error');
@@ -101,6 +108,8 @@ function inicializarLoginAdmin() {
     // Cerrar sesión de administrador
     if (adminLogout) {
         adminLogout.addEventListener('click', function() {
+            isAdminLoggedIn = false;
+            detenerActualizacionAutomatica();
             document.getElementById('admin-login').style.display = 'block';
             document.getElementById('admin-panel').style.display = 'none';
             loginForm.reset();
@@ -112,12 +121,36 @@ function inicializarLoginAdmin() {
 }
 
 function inicializarCliente() {
+    const accessOptions = document.querySelectorAll('.access-option');
     const registerForm = document.getElementById('register-form');
-    const backToRegister = document.getElementById('back-to-register');
+    const emailOnlyForm = document.getElementById('email-only-form');
+    const backToAccess = document.getElementById('back-to-access');
     const verPremiosBtn = document.getElementById('ver-premios');
     const backToInfo = document.getElementById('back-to-info');
 
-    // Registro de cliente
+    // Opciones de acceso (nuevo vs cliente registrado)
+    accessOptions.forEach(option => {
+        option.addEventListener('click', function() {
+            const accessType = this.getAttribute('data-access');
+            
+            // Actualizar opciones activas
+            accessOptions.forEach(opt => opt.classList.remove('active'));
+            this.classList.add('active');
+            
+            // Mostrar formulario correspondiente
+            document.querySelectorAll('.access-form').forEach(form => {
+                form.classList.remove('active');
+            });
+            
+            if (accessType === 'new') {
+                document.getElementById('new-client-form').classList.add('active');
+            } else {
+                document.getElementById('returning-client-form').classList.add('active');
+            }
+        });
+    });
+
+    // Registro de nuevo cliente
     if (registerForm) {
         registerForm.addEventListener('submit', async function(e) {
             e.preventDefault();
@@ -133,6 +166,7 @@ function inicializarCliente() {
                     showMessage(result.message, 'success');
                 } else {
                     if (result.message.includes('ya está registrado')) {
+                        // Si el email ya existe, mostrar información del cliente
                         const clientResult = await getClientByEmail(email);
                         if (clientResult.success) {
                             showClientInfo(clientResult.client);
@@ -151,12 +185,41 @@ function inicializarCliente() {
         });
     }
 
+    // Acceso con solo email (cliente registrado)
+    if (emailOnlyForm) {
+        emailOnlyForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const email = document.getElementById('email-only').value;
+            
+            if (!email) {
+                showMessage('Por favor ingresa tu email', 'error');
+                return;
+            }
+            
+            try {
+                const result = await getClientByEmail(email);
+                
+                if (result.success) {
+                    showClientInfo(result.client);
+                    showMessage('¡Bienvenido de nuevo! Aquí están tus puntos.', 'success');
+                } else {
+                    showMessage('Email no encontrado. Por favor regístrate primero.', 'error');
+                }
+            } catch (error) {
+                console.error('Error accediendo con email:', error);
+                showMessage('Error accediendo a tu cuenta: ' + error.message, 'error');
+            }
+        });
+    }
+
     // Navegación del cliente
-    if (backToRegister) {
-        backToRegister.addEventListener('click', function() {
-            document.getElementById('client-register').style.display = 'block';
+    if (backToAccess) {
+        backToAccess.addEventListener('click', function() {
+            document.getElementById('client-access').style.display = 'block';
             document.getElementById('client-info').style.display = 'none';
             if (registerForm) registerForm.reset();
+            if (emailOnlyForm) emailOnlyForm.reset();
         });
     }
 
@@ -177,11 +240,153 @@ function inicializarCliente() {
 }
 
 // =============================================
-// PANEL DE ADMINISTRADOR - CORREGIDO
+// ACTUALIZACIÓN AUTOMÁTICA OPTIMIZADA
+// =============================================
+
+function iniciarActualizacionAutomaticaOptimizada() {
+    // Detener cualquier intervalo existente
+    if (autoUpdateInterval) {
+        clearInterval(autoUpdateInterval);
+    }
+    
+    // Actualizar cada 30 segundos (reducido de 10s para ahorrar recursos)
+    autoUpdateInterval = setInterval(() => {
+        if (isAdminLoggedIn) {
+            const ahora = Date.now();
+            // Solo actualizar si han pasado al menos 30 segundos desde la última actualización
+            if (ahora - lastUpdateTime >= UPDATE_INTERVAL) {
+                console.log('🔄 Actualización automática optimizada...');
+                actualizarListaClientesOptimizada();
+                lastUpdateTime = ahora;
+            }
+        }
+    }, 10000); // Chequear cada 10s, pero solo actualizar si cumple condición
+    
+    console.log('📊 Actualización automática configurada (optimizada para Vercel)');
+}
+
+function detenerActualizacionAutomatica() {
+    if (autoUpdateInterval) {
+        clearInterval(autoUpdateInterval);
+        autoUpdateInterval = null;
+        console.log('⏹️ Actualización automática detenida');
+    }
+}
+
+async function actualizarListaClientesOptimizada() {
+    try {
+        // Solo actualizar si el admin está viendo la pestaña de clientes
+        const clientesTab = document.getElementById('admin-clientes');
+        if (!clientesTab || clientesTab.style.display === 'none') {
+            return; // No actualizar si no está viendo clientes
+        }
+        
+        const result = await getAllClients();
+        
+        if (result.success) {
+            const cambios = detectarCambiosClientes(result.clients);
+            clients = result.clients;
+            
+            if (cambios > 0) {
+                console.log(`🔄 ${cambios} cambios detectados en clientes`);
+                
+                if (busquedaActiva && terminoBusqueda) {
+                    searchClients(terminoBusqueda);
+                } else {
+                    mostrarTodosLosClientes();
+                }
+                
+                // Mostrar notificación sutil de actualización
+                mostrarNotificacionActualizacion(cambios);
+            }
+            
+            // Actualizar métricas solo si están visibles
+            const metricasTab = document.getElementById('admin-metricas');
+            if (metricasTab && metricasTab.style.display !== 'none') {
+                cargarMetricas();
+            }
+        }
+    } catch (error) {
+        console.error('Error en actualización optimizada:', error);
+    }
+}
+
+// Detectar si hubo cambios reales para evitar actualizaciones innecesarias
+function detectarCambiosClientes(nuevosClientes) {
+    if (clients.length !== nuevosClientes.length) {
+        return Math.abs(clients.length - nuevosClientes.length);
+    }
+    
+    // Comparar cambios en puntos o nuevos clientes
+    let cambios = 0;
+    nuevosClientes.forEach(nuevoCliente => {
+        const clienteExistente = clients.find(c => c.id === nuevoCliente.id);
+        if (!clienteExistente) {
+            cambios++; // Cliente nuevo
+        } else if (clienteExistente.points !== nuevoCliente.points) {
+            cambios++; // Cambio en puntos
+        } else if (clienteExistente.name !== nuevoCliente.name || 
+                   clienteExistente.email !== nuevoCliente.email) {
+            cambios++; // Cambio en datos
+        }
+    });
+    
+    return cambios;
+}
+
+function mostrarNotificacionActualizacion(cambios) {
+    // Crear notificación sutil
+    const notificacion = document.createElement('div');
+    notificacion.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: #4CAF50;
+        color: white;
+        padding: 10px 20px;
+        border-radius: 5px;
+        font-size: 14px;
+        z-index: 1000;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        animation: slideIn 0.3s ease;
+    `;
+    
+    notificacion.textContent = `✅ ${cambios} actualización${cambios !== 1 ? 'es' : ''} detectada${cambios !== 1 ? 's' : ''}`;
+    
+    document.body.appendChild(notificacion);
+    
+    // Auto-eliminar después de 3 segundos
+    setTimeout(() => {
+        if (notificacion.parentNode) {
+            notificacion.style.animation = 'slideOut 0.3s ease';
+            setTimeout(() => notificacion.remove(), 300);
+        }
+    }, 3000);
+    
+    // Agregar estilos CSS para animaciones si no existen
+    if (!document.getElementById('animations-styles')) {
+        const style = document.createElement('style');
+        style.id = 'animations-styles';
+        style.textContent = `
+            @keyframes slideIn {
+                from { transform: translateX(100%); opacity: 0; }
+                to { transform: translateX(0); opacity: 1; }
+            }
+            @keyframes slideOut {
+                from { transform: translateX(0); opacity: 1; }
+                to { transform: translateX(100%); opacity: 0; }
+            }
+        `;
+        document.head.appendChild(style);
+    }
+}
+
+// =============================================
+// PANEL DE ADMINISTRADOR
 // =============================================
 
 function inicializarPanelAdmin() {
-    console.log('🔧 Inicializando panel de administrador...');
+    console.log('🔧 Inicializando panel de administrador optimizado...');
     
     // Inicializar pestañas internas del admin
     inicializarTabsAdmin();
@@ -191,6 +396,16 @@ function inicializarPanelAdmin() {
     
     // Inicializar botones de métricas
     inicializarMetricas();
+    
+    // Inicializar botón de actualizar clientes
+    const actualizarClientesBtn = document.getElementById('actualizar-clientes');
+    if (actualizarClientesBtn) {
+        actualizarClientesBtn.addEventListener('click', function() {
+            console.log('🔄 Actualizando lista de clientes manualmente...');
+            actualizarListaClientesOptimizada();
+            showMessage('Lista de clientes actualizada manualmente', 'success');
+        });
+    }
 }
 
 function inicializarTabsAdmin() {
@@ -447,14 +662,22 @@ async function eliminarPremio(premioId) {
 }
 
 // =============================================
-// SISTEMA DE MÉTRICAS
+// SISTEMA DE MÉTRICAS SIMPLIFICADO
 // =============================================
 
 async function cargarMetricas() {
     try {
-        console.log('📊 Cargando métricas...');
-        metricasData = await obtenerMetricas();
-        actualizarInterfazMetricas();
+        console.log('📊 Cargando métricas simplificadas...');
+        
+        // Usar datos locales si están disponibles para reducir llamadas a la API
+        if (clients.length > 0 && metricasData.cobrosPremios.length > 0) {
+            console.log('📊 Usando datos locales para métricas');
+            actualizarInterfazMetricas();
+        } else {
+            // Solo cargar desde Supabase si no hay datos locales
+            metricasData = await obtenerMetricas();
+            actualizarInterfazMetricas();
+        }
     } catch (error) {
         console.error('💥 Error cargando métricas:', error);
         showMessage('Error cargando métricas: ' + error.message, 'error');
@@ -470,41 +693,10 @@ function actualizarInterfazMetricas() {
     
     const totalClientes = clients.length;
     const totalPremiosCanjeados = metricasData.cobrosPremios.length;
-    const puntosTotales = clients.reduce((sum, client) => sum + client.points, 0);
     
     const clientesConPremios = clients.filter(client => 
         premiosConfig.some(premio => client.points >= premio.puntosRequeridos)
     ).length;
-
-    // Calcular estadísticas adicionales
-    const totalRegistrosHistorial = metricasData.cobrosPremios.length;
-    const fechaPrimerCanje = totalRegistrosHistorial > 0 ? 
-        new Date(metricasData.cobrosPremios[totalRegistrosHistorial - 1].fecha_cobro).toLocaleDateString('es-ES') : 
-        'N/A';
-    
-    const fechaUltimoCanje = totalRegistrosHistorial > 0 ? 
-        new Date(metricasData.cobrosPremios[0].fecha_cobro).toLocaleDateString('es-ES') : 
-        'N/A';
-
-    // Calcular estadísticas de premios
-    const premiosCount = {};
-    metricasData.cobrosPremios.forEach(cobro => {
-        premiosCount[cobro.premio_nombre] = (premiosCount[cobro.premio_nombre] || 0) + 1;
-    });
-    
-    let estadisticasPremiosHTML = '';
-    if (Object.entries(premiosCount).length === 0) {
-        estadisticasPremiosHTML = '<p style="text-align: center; color: var(--color-gris); padding: 20px;">No hay premios canjeados aún</p>';
-    } else {
-        estadisticasPremiosHTML = Object.entries(premiosCount)
-            .sort((a, b) => b[1] - a[1])
-            .map(([premio, count]) => `
-                <div class="premio-stat">
-                    <span class="premio-nombre">${premio}</span>
-                    <span class="premio-count">${count} canjeos</span>
-                </div>
-            `).join('');
-    }
 
     metricasContainer.innerHTML = `
         <div class="metricas-grid">
@@ -519,54 +711,19 @@ function actualizarInterfazMetricas() {
             <div class="metrica-card">
                 <div class="metrica-icon">🏆</div>
                 <div class="metrica-info">
-                    <h3>${totalPremiosCanjeados}</h3>
-                    <p>Premios Canjeados</p>
-                </div>
-            </div>
-            
-            <div class="metrica-card">
-                <div class="metrica-icon">⭐</div>
-                <div class="metrica-info">
                     <h3>${clientesConPremios}</h3>
                     <p>Clientes con Premios Disponibles</p>
                 </div>
             </div>
-            
-            <div class="metrica-card">
-                <div class="metrica-icon">📊</div>
-                <div class="metrica-info">
-                    <h3>${puntosTotales}</h3>
-                    <p>Puntos Totales en Sistema</p>
-                </div>
-            </div>
         </div>
 
-        <!-- SECCIÓN: EXPORTACIÓN DE DATOS MEJORADA -->
+        <!-- SECCIÓN: EXPORTACIÓN SIMPLIFICADA -->
         <div class="metrica-section" style="margin-bottom: 25px;">
             <h3>📤 Exportar Datos</h3>
             
-            <!-- Filtros por período rápido -->
-            <div style="margin-bottom: 20px;">
-                <h4 style="color: var(--color-gris-oscuro); margin-bottom: 10px;">Exportación Rápida</h4>
-                <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 15px;">
-                    <button class="btn btn-secondary" id="exportar-mes-actual">
-                        <i class="fas fa-calendar-alt"></i> Mes Actual
-                    </button>
-                    <button class="btn btn-secondary" id="exportar-ultimos-30dias">
-                        <i class="fas fa-history"></i> Últimos 30 Días
-                    </button>
-                    <button class="btn btn-secondary" id="exportar-ultimo-trimestre">
-                        <i class="fas fa-chart-line"></i> Último Trimestre
-                    </button>
-                    <button class="btn" id="exportar-todo">
-                        <i class="fas fa-database"></i> Todo el Historial
-                    </button>
-                </div>
-            </div>
-
             <!-- Selector de fechas personalizado -->
             <div style="background: var(--color-gris-claro); padding: 20px; border-radius: 8px; margin-bottom: 15px;">
-                <h4 style="color: var(--color-gris-oscuro); margin-bottom: 15px;">Exportación Personalizada</h4>
+                <h4 style="color: var(--color-gris-oscuro); margin-bottom: 15px;">Exportar por Período</h4>
                 <div style="display: grid; grid-template-columns: 1fr 1fr auto; gap: 10px; align-items: end;">
                     <div class="form-group" style="margin-bottom: 0;">
                         <label style="font-size: 14px;">Fecha Inicio</label>
@@ -577,8 +734,8 @@ function actualizarInterfazMetricas() {
                         <input type="date" id="fecha-fin" class="form-control" style="padding: 8px;">
                     </div>
                     <div style="display: flex; gap: 10px;">
-                        <button class="btn" id="exportar-por-fecha">
-                            <i class="fas fa-download"></i> Exportar
+                        <button class="btn" id="exportar-excel">
+                            <i class="fas fa-download"></i> Exportar Excel
                         </button>
                         <button class="btn btn-secondary" id="limpiar-fechas">
                             <i class="fas fa-broom"></i> Limpiar
@@ -588,15 +745,12 @@ function actualizarInterfazMetricas() {
                 <div id="info-fechas" style="margin-top: 10px; font-size: 12px; color: var(--color-gris);"></div>
             </div>
 
-            <!-- Formatos de exportación -->
-            <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-                <button class="btn" id="exportar-csv">
-                    <i class="fas fa-file-csv"></i> Descargar CSV
+            <!-- Botón para exportar todo -->
+            <div style="margin-bottom: 15px;">
+                <button class="btn" id="exportar-todo">
+                    <i class="fas fa-database"></i> Exportar Todo el Historial
                 </button>
-                <button class="btn" id="exportar-excel">
-                    <i class="fas fa-file-excel"></i> Descargar Excel
-                </button>
-                <button class="btn" id="exportar-reporte">
+                <button class="btn btn-secondary" id="exportar-reporte" style="margin-left: 10px;">
                     <i class="fas fa-chart-bar"></i> Reporte Estadístico
                 </button>
             </div>
@@ -604,39 +758,8 @@ function actualizarInterfazMetricas() {
             <!-- Información del historial -->
             <div style="background: var(--color-gris-claro); padding: 15px; border-radius: 8px; font-size: 14px; margin-top: 20px;">
                 <p><strong>Información del Historial:</strong></p>
-                <p>• Total de registros: <strong>${totalRegistrosHistorial}</strong> canjes</p>
-                <p>• Primer canje: <strong>${fechaPrimerCanje}</strong></p>
-                <p>• Último canje: <strong>${fechaUltimoCanje}</strong></p>
-                <p>• Los datos se almacenan <strong>indefinidamente</strong> en la base de datos</p>
-            </div>
-        </div>
-        
-        <div class="metricas-detalle">
-            <div class="metrica-section">
-                <h3>📈 Premios Más Canjeados</h3>
-                <div class="premios-stats">
-                    ${estadisticasPremiosHTML}
-                </div>
-            </div>
-            
-            <div class="metrica-section">
-                <h3>📋 Historial de Canjes Recientes</h3>
-                <div class="historial-cobros">
-                    ${metricasData.cobrosPremios.length > 0 ? 
-                        metricasData.cobrosPremios.slice(0, 10).map(cobro => `
-                            <div class="cobro-item">
-                                <div class="cobro-info">
-                                    <strong>${cobro.cliente_nombre}</strong>
-                                    <span>canjeó: ${cobro.premio_nombre}</span>
-                                </div>
-                                <div class="cobro-fecha">
-                                    ${new Date(cobro.fecha_cobro).toLocaleDateString('es-ES')}
-                                </div>
-                            </div>
-                        `).join('') : 
-                        '<p style="text-align: center; color: var(--color-gris); padding: 20px;">No hay historial de canjes</p>'
-                    }
-                </div>
+                <p>• Total de registros: <strong>${totalPremiosCanjeados}</strong> canjes</p>
+                <p>• Los datos se actualizan automáticamente cada 30 segundos</p>
             </div>
         </div>
     `;
@@ -663,44 +786,7 @@ function inicializarFiltrosFecha() {
     
     actualizarInfoFechas();
 
-    // Event listeners para filtros rápidos
-    document.getElementById('exportar-mes-actual')?.addEventListener('click', async function() {
-        const cobros = await obtenerCobrosMesActual();
-        if (cobros.length === 0) {
-            alert('No hay datos para el mes actual');
-            return;
-        }
-        const hoy = new Date();
-        const nombreArchivo = `canjes_mes_${hoy.getFullYear()}_${(hoy.getMonth() + 1).toString().padStart(2, '0')}.xls`;
-        exportarAExcel(cobros, nombreArchivo);
-    });
-    
-    document.getElementById('exportar-ultimos-30dias')?.addEventListener('click', async function() {
-        const cobros = await obtenerCobrosUltimos30Dias();
-        if (cobros.length === 0) {
-            alert('No hay datos para los últimos 30 días');
-            return;
-        }
-        const fechaFin = new Date();
-        const fechaInicio = new Date();
-        fechaInicio.setDate(fechaFin.getDate() - 30);
-        const nombreArchivo = `canjes_${formatearFechaArchivo(fechaInicio)}_a_${formatearFechaArchivo(fechaFin)}.xls`;
-        exportarAExcel(cobros, nombreArchivo);
-    });
-    
-    document.getElementById('exportar-ultimo-trimestre')?.addEventListener('click', async function() {
-        const cobros = await obtenerCobrosUltimoTrimestre();
-        if (cobros.length === 0) {
-            alert('No hay datos para el último trimestre');
-            return;
-        }
-        const fechaFin = new Date();
-        const fechaInicio = new Date();
-        fechaInicio.setMonth(fechaFin.getMonth() - 3);
-        const nombreArchivo = `canjes_trimestre_${formatearFechaArchivo(fechaInicio)}_a_${formatearFechaArchivo(fechaFin)}.xls`;
-        exportarAExcel(cobros, nombreArchivo);
-    });
-    
+    // Exportar todo el historial
     document.getElementById('exportar-todo')?.addEventListener('click', async function() {
         const todosLosCobros = await obtenerTodosLosCobros();
         if (todosLosCobros.length === 0) {
@@ -711,7 +797,7 @@ function inicializarFiltrosFecha() {
     });
 
     // Exportación por fecha personalizada
-    document.getElementById('exportar-por-fecha')?.addEventListener('click', async function() {
+    document.getElementById('exportar-excel')?.addEventListener('click', async function() {
         const fechaInicio = document.getElementById('fecha-inicio').value;
         const fechaFin = document.getElementById('fecha-fin').value;
         
@@ -745,6 +831,11 @@ function inicializarFiltrosFecha() {
     // Actualizar info cuando cambien las fechas
     document.getElementById('fecha-inicio')?.addEventListener('change', actualizarInfoFechas);
     document.getElementById('fecha-fin')?.addEventListener('change', actualizarInfoFechas);
+
+    // Reporte estadístico
+    document.getElementById('exportar-reporte')?.addEventListener('click', function() {
+        generarReporteEstadistico();
+    });
 }
 
 // Actualizar información de fechas seleccionadas
@@ -767,55 +858,7 @@ function actualizarInfoFechas() {
 
 // Inicializar botones de exportación
 function inicializarBotonesExportacion() {
-    document.getElementById('exportar-csv')?.addEventListener('click', async function() {
-        const fechaInicio = document.getElementById('fecha-inicio')?.value;
-        const fechaFin = document.getElementById('fecha-fin')?.value;
-        
-        let cobros;
-        let nombreArchivo;
-        
-        if (fechaInicio && fechaFin) {
-            cobros = await obtenerCobrosPorFecha(fechaInicio, fechaFin);
-            nombreArchivo = `canjes_${fechaInicio.replace(/-/g, '')}_a_${fechaFin.replace(/-/g, '')}.csv`;
-        } else {
-            cobros = await obtenerTodosLosCobros();
-            nombreArchivo = `historial_completo_canjes_${formatearFechaArchivo(new Date())}.csv`;
-        }
-        
-        if (cobros.length === 0) {
-            alert('No hay datos para exportar');
-            return;
-        }
-        
-        exportarACSV(cobros, nombreArchivo);
-    });
-    
-    document.getElementById('exportar-excel')?.addEventListener('click', async function() {
-        const fechaInicio = document.getElementById('fecha-inicio')?.value;
-        const fechaFin = document.getElementById('fecha-fin')?.value;
-        
-        let cobros;
-        let nombreArchivo;
-        
-        if (fechaInicio && fechaFin) {
-            cobros = await obtenerCobrosPorFecha(fechaInicio, fechaFin);
-            nombreArchivo = `canjes_${fechaInicio.replace(/-/g, '')}_a_${fechaFin.replace(/-/g, '')}.xls`;
-        } else {
-            cobros = await obtenerTodosLosCobros();
-            nombreArchivo = `historial_completo_canjes_${formatearFechaArchivo(new Date())}.xls`;
-        }
-        
-        if (cobros.length === 0) {
-            alert('No hay datos para exportar');
-            return;
-        }
-        
-        exportarAExcel(cobros, nombreArchivo);
-    });
-    
-    document.getElementById('exportar-reporte')?.addEventListener('click', function() {
-        generarReporteEstadistico();
-    });
+    // Ya están inicializados en inicializarFiltrosFecha
 }
 
 // =============================================
@@ -827,14 +870,14 @@ function showClientInfo(client) {
     const displayName = document.getElementById('display-name');
     const displayEmail = document.getElementById('display-email');
     const displayPoints = document.getElementById('display-points');
-    const clientRegister = document.getElementById('client-register');
+    const clientAccess = document.getElementById('client-access');
     const clientInfo = document.getElementById('client-info');
     
     if (displayName) displayName.textContent = client.name;
     if (displayEmail) displayEmail.textContent = client.email;
     if (displayPoints) displayPoints.textContent = client.points;
     
-    if (clientRegister) clientRegister.style.display = 'none';
+    if (clientAccess) clientAccess.style.display = 'none';
     if (clientInfo) clientInfo.style.display = 'block';
     
     actualizarProgresoPremios();
@@ -867,7 +910,7 @@ async function loadClientsTable() {
     }
 }
 
-// Función para mostrar todos los clientes (SIN BOTÓN RESET)
+// Función para mostrar todos los clientes
 function mostrarTodosLosClientes() {
     const clientsTable = document.querySelector('#clients-table tbody');
     if (!clientsTable) return;
@@ -913,7 +956,7 @@ function mostrarTodosLosClientes() {
     addTableEventListeners();
 }
 
-// Agregar event listeners a la tabla (SIN BOTÓN RESET)
+// Agregar event listeners a la tabla
 function addTableEventListeners() {
     // Botones de puntos
     document.querySelectorAll('.points-btn').forEach(btn => {
@@ -1010,7 +1053,6 @@ function crearBuscador() {
     searchContainer.style.cssText = 'display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 15px;';
     
     searchContainer.innerHTML = `
-        <h3 style="margin: 0;">Gestión de Clientes</h3>
         <div style="display: flex; gap: 10px; align-items: center;">
             <input type="text" id="search-client" placeholder="Buscar por nombre o email..." style="padding: 10px; border: 1px solid var(--color-gris); border-radius: 5px; min-width: 250px;">
             <button class="btn btn-secondary" id="clear-search">Limpiar</button>
@@ -1157,7 +1199,7 @@ async function actualizarProgresoPremios() {
 }
 
 // =============================================
-// COBRO DE PREMIOS (CONSERVANDO PUNTOS SOBRANTES)
+// COBRO DE PREMIOS
 // =============================================
 
 async function cobrarPremioCliente(clientId) {
@@ -1302,4 +1344,4 @@ function formatearFechaArchivo(fecha) {
     return fecha.toISOString().split('T')[0].replace(/-/g, '');
 }
 
-console.log('🚀 Aplicación VillaLeon cargada');
+console.log('🚀 Aplicación VillaLeon optimizada para Vercel');

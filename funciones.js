@@ -1,4 +1,4 @@
-// Funciones para interactuar con Supabase
+// Funciones para interactuar con Supabase - VERSIÓN OPTIMIZADA PARA VERCEL
 
 // Registrar nuevo cliente
 async function registerClient(name, email) {
@@ -111,19 +111,20 @@ async function updateClientPointsInDB(clientId, newPoints) {
     }
 }
 
-// Obtener todos los clientes (para admin)
+// Obtener todos los clientes (para admin) - VERSIÓN OPTIMIZADA
 async function getAllClients() {
     try {
-        console.log('📊 Obteniendo todos los clientes...');
+        console.log('📊 Obteniendo clientes (optimizado)...');
         
         const { data, error } = await supabase
             .from('clients')
             .select('*')
-            .order('created_at', { ascending: false });
+            .order('created_at', { ascending: false })
+            .limit(1000); // Limitar resultados para optimizar
 
         if (error) throw error;
 
-        console.log('✅ Clientes obtenidos:', data.length);
+        console.log(`✅ ${data.length} clientes obtenidos`);
         return { 
             success: true, 
             clients: data 
@@ -259,10 +260,10 @@ async function resetearPuntosCliente(clientId) {
 }
 
 // =============================================
-// NUEVAS FUNCIONES PARA MÉTRICAS Y COBROS
+// FUNCIONES PARA MÉTRICAS Y COBROS (OPTIMIZADAS)
 // =============================================
 
-// Registrar cobro de premio (MODIFICADA PARA PUNTOS RESTANTES)
+// Registrar cobro de premio
 async function registrarCobroPremio(clienteId, clienteNombre, premioId, premioNombre, puntosCanjeados, puntosRestantesCliente) {
     try {
         console.log('💰 Registrando cobro de premio:', {
@@ -278,7 +279,7 @@ async function registrarCobroPremio(clienteId, clienteNombre, premioId, premioNo
                     premio_id: premioId,
                     premio_nombre: premioNombre,
                     puntos_canjeados: puntosCanjeados,
-                    puntos_totales_cliente: puntosRestantesCliente, // Ahora representa los puntos RESTANTES después del canje
+                    puntos_totales_cliente: puntosRestantesCliente,
                     fecha_cobro: new Date().toISOString()
                 }
             ]);
@@ -293,39 +294,60 @@ async function registrarCobroPremio(clienteId, clienteNombre, premioId, premioNo
     }
 }
 
-// Obtener métricas del sistema (FUNCIÓN QUE FALTABA)
+// Obtener métricas del sistema - VERSIÓN OPTIMIZADA CON CACHÉ
 async function obtenerMetricas() {
     try {
-        console.log('📈 Obteniendo métricas del sistema...');
+        console.log('📈 Obteniendo métricas (optimizado)...');
         
-        // Obtener todos los cobros de premios
+        // Usar caché local si está disponible
+        const ahora = Date.now();
+        const cacheDuration = 5 * 60 * 1000; // 5 minutos en milisegundos
+        
+        if (window.metricasCache && window.metricasCache.timestamp) {
+            const tiempoTranscurrido = ahora - window.metricasCache.timestamp;
+            if (tiempoTranscurrido < cacheDuration) {
+                console.log('📊 Usando caché de métricas');
+                return window.metricasCache.data;
+            }
+        }
+        
+        // Obtener todos los cobros de premios (con límite para optimizar)
         const { data: cobrosData, error: cobrosError } = await supabase
             .from('cobros_premios')
             .select('*')
-            .order('fecha_cobro', { ascending: false });
+            .order('fecha_cobro', { ascending: false })
+            .limit(500); // Limitar para optimizar
 
         if (cobrosError) throw cobrosError;
 
-        // Obtener estadísticas de clientes
+        // Obtener estadísticas de clientes (con límite)
         const { data: clientsData, error: clientsError } = await supabase
             .from('clients')
-            .select('id, points');
+            .select('id, points')
+            .limit(1000);
 
         if (clientsError) throw clientsError;
 
-        return {
+        const resultado = {
             cobrosPremios: cobrosData || [],
             totalClientes: clientsData?.length || 0,
-            totalPremiosCanjeados: cobrosData?.length || 0,
-            puntosTotalesSistema: clientsData?.reduce((sum, client) => sum + (client.points || 0), 0) || 0
+            totalPremiosCanjeados: cobrosData?.length || 0
         };
+        
+        // Guardar en caché
+        window.metricasCache = {
+            data: resultado,
+            timestamp: ahora
+        };
+        
+        return resultado;
+        
     } catch (error) {
         console.error('❌ Error obteniendo métricas:', error);
         return {
             cobrosPremios: [],
             totalClientes: 0,
-            totalPremiosCanjeados: 0,
-            puntosTotalesSistema: 0
+            totalPremiosCanjeados: 0
         };
     }
 }
@@ -337,7 +359,8 @@ async function obtenerHistorialCliente(clienteId) {
             .from('cobros_premios')
             .select('*')
             .eq('cliente_id', clienteId)
-            .order('fecha_cobro', { ascending: false });
+            .order('fecha_cobro', { ascending: false })
+            .limit(50); // Limitar para optimizar
 
         if (error) throw error;
 
@@ -353,7 +376,8 @@ async function obtenerEstadisticasPremios() {
     try {
         const { data, error } = await supabase
             .from('cobros_premios')
-            .select('premio_nombre');
+            .select('premio_nombre')
+            .limit(500); // Limitar para optimizar
 
         if (error) throw error;
 
@@ -371,22 +395,42 @@ async function obtenerEstadisticasPremios() {
 }
 
 // =============================================
-// NUEVAS FUNCIONES PARA EXPORTACIÓN DE DATOS
+// FUNCIONES PARA EXPORTACIÓN DE DATOS (OPTIMIZADAS)
 // =============================================
 
-// Obtener todos los cobros de premios (sin límite)
+// Obtener todos los cobros de premios (optimizado con caché)
 async function obtenerTodosLosCobros() {
     try {
-        console.log('📋 Obteniendo todos los cobros de premios...');
+        console.log('📋 Obteniendo todos los cobros de premios (optimizado)...');
+        
+        // Verificar caché primero
+        const ahora = Date.now();
+        const cacheDuration = 10 * 60 * 1000; // 10 minutos para datos completos
+        
+        if (window.cobrosCache && window.cobrosCache.timestamp) {
+            const tiempoTranscurrido = ahora - window.cobrosCache.timestamp;
+            if (tiempoTranscurrido < cacheDuration) {
+                console.log('📋 Usando caché de cobros');
+                return window.cobrosCache.data;
+            }
+        }
         
         const { data, error } = await supabase
             .from('cobros_premios')
             .select('*')
-            .order('fecha_cobro', { ascending: false });
+            .order('fecha_cobro', { ascending: false })
+            .limit(2000); // Limitar para exportaciones
 
         if (error) throw error;
 
         console.log(`✅ ${data.length} cobros obtenidos`);
+        
+        // Guardar en caché
+        window.cobrosCache = {
+            data: data || [],
+            timestamp: ahora
+        };
+        
         return data || [];
     } catch (error) {
         console.error('❌ Error obteniendo cobros:', error);
@@ -602,7 +646,7 @@ async function generarReporteEstadistico() {
 }
 
 // =============================================
-// FUNCIONES PARA FILTRADO POR FECHA
+// FUNCIONES PARA FILTRADO POR FECHA (OPTIMIZADAS)
 // =============================================
 
 // Obtener cobros por rango de fechas
@@ -620,7 +664,8 @@ async function obtenerCobrosPorFecha(fechaInicio, fechaFin) {
             .select('*')
             .gte('fecha_cobro', inicio.toISOString())
             .lte('fecha_cobro', fin.toISOString())
-            .order('fecha_cobro', { ascending: false });
+            .order('fecha_cobro', { ascending: false })
+            .limit(1000); // Limitar para optimizar
 
         if (error) throw error;
 
@@ -663,3 +708,5 @@ async function obtenerCobrosUltimoTrimestre() {
 function formatearFechaArchivo(fecha) {
     return fecha.toISOString().split('T')[0].replace(/-/g, '');
 }
+
+console.log('✅ Funciones.js optimizado para Vercel cargado');

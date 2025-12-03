@@ -457,7 +457,7 @@
             width: auto;
         }
         
-        /* NUEVOS ESTILOS PARA MÉTRICAS */
+        /* NUEVOS ESTILOS PARA MÉTRICAS SIMPLIFICADAS */
         .metricas-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
@@ -540,71 +540,6 @@
             border-radius: 15px;
             font-size: 12px;
             font-weight: bold;
-        }
-        
-        .historial-cobros {
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-            max-height: 300px;
-            overflow-y: auto;
-        }
-        
-        .cobro-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 12px;
-            background: var(--color-gris-claro);
-            border-radius: 8px;
-            border-left: 4px solid var(--color-rojo);
-        }
-        
-        .cobro-info {
-            display: flex;
-            flex-direction: column;
-        }
-        
-        .cobro-info strong {
-            color: var(--color-gris-oscuro);
-        }
-        
-        .cobro-info span {
-            color: var(--color-gris);
-            font-size: 14px;
-        }
-        
-        .cobro-fecha {
-            color: var(--color-gris);
-            font-size: 12px;
-            font-weight: 600;
-        }
-        
-        .estadisticas-mes {
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-        }
-        
-        .estadistica-mes {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 8px 0;
-            border-bottom: 1px solid var(--color-gris-claro);
-        }
-        
-        .mes-nombre {
-            font-weight: 600;
-            color: var(--color-gris-oscuro);
-        }
-        
-        .mes-cobros {
-            background: var(--color-rojo);
-            color: white;
-            padding: 2px 8px;
-            border-radius: 10px;
-            font-size: 12px;
         }
         
         /* Mensajes */
@@ -691,6 +626,63 @@
                 margin-bottom: 15px;
             }
         }
+
+        /* Estilos para el login con solo email */
+        .client-access-options {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            margin-bottom: 25px;
+            padding: 20px;
+            background: var(--color-gris-claro);
+            border-radius: 10px;
+        }
+
+        .access-option {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px;
+            background: var(--color-blanco);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: 2px solid transparent;
+        }
+
+        .access-option:hover {
+            border-color: var(--color-rojo);
+            background: rgba(211, 47, 47, 0.05);
+        }
+
+        .access-option.active {
+            border-color: var(--color-rojo);
+            background: rgba(211, 47, 47, 0.1);
+        }
+
+        .option-icon {
+            font-size: 24px;
+            color: var(--color-rojo);
+            min-width: 30px;
+        }
+
+        .option-text h4 {
+            color: var(--color-gris-oscuro);
+            margin-bottom: 5px;
+        }
+
+        .option-text p {
+            color: var(--color-gris);
+            font-size: 14px;
+        }
+
+        .access-form {
+            display: none;
+        }
+
+        .access-form.active {
+            display: block;
+        }
     </style>
 </head>
 <body>
@@ -704,7 +696,8 @@
                     <div class="logo-subtitle">-Puede acumular puntos para subir de nivel en recompensas</div>
                     <div class="logo-subtitle">-Al canjear un premio solo se descuentan los puntos del premio seleccionado</div>
                     <div class="logo-subtitle">-Los puntos sobrantes se conservan en tu cuenta para futuros premios</div>
-                    <div class="logo-subtitle">-Cuando llegue informenos si es cliente registrado para agregar sus puntos o si va a cobrar un premio</div>
+                    <div class="logo-subtitle"><b>--IMPORTANTE--</b></div>
+                    <div class="logo-subtitle"><b>-Al pedir su cuenta</b> informenos si es cliente registrado para agregar sus puntos o si va a cobrar un premio</div>
                     <div class="logo-subtitle">-No es posible cambiar o modificar los premios, lo sentimos pero es por sistema y control</div>
                     <div class="logo-subtitle">---¡¡Nos alegra recibirlo y que sea parte de nuestros clientes!!---</div>
                 </div>
@@ -720,24 +713,57 @@
         
         <!-- Pestaña Cliente -->
         <div id="client-tab" class="tab-content active">
-            <!-- Registro de Cliente -->
-            <div id="client-register" class="client-section">
-                <h2>Registro-Acceso de Cliente</h2>
-                <p>Ingrese sus datos para registrarse o para acceder a su cuenta:</p>
+            <!-- Opciones de acceso -->
+            <div id="client-access" class="client-section">
+                <h2>Acceso de Cliente</h2>
+                <p>Selecciona cómo deseas acceder a tu cuenta:</p>
                 
-                <form id="register-form">
-                    <div class="form-group">
-                        <label for="name">Nombre completo</label>
-                        <input type="text" id="name" name="name" required>
+                <div class="client-access-options">
+                    <div class="access-option active" data-access="new">
+                        <div class="option-icon">👤</div>
+                        <div class="option-text">
+                            <h4>Nuevo Cliente</h4>
+                            <p>Registrarme por primera vez en el sistema</p>
+                        </div>
                     </div>
                     
-                    <div class="form-group">
-                        <label for="email">Correo electrónico</label>
-                        <input type="email" id="email" name="email" required>
+                    <div class="access-option" data-access="returning">
+                        <div class="option-icon">📧</div>
+                        <div class="option-text">
+                            <h4>Cliente Registrado</h4>
+                            <p>Ya tengo cuenta, solo ingresar con mi email</p>
+                        </div>
                     </div>
-                    
-                    <button type="submit" class="btn">Entrar</button>
-                </form>
+                </div>
+                
+                <!-- Formulario para nuevo cliente -->
+                <div id="new-client-form" class="access-form active">
+                    <form id="register-form">
+                        <div class="form-group">
+                            <label for="name">Nombre completo</label>
+                            <input type="text" id="name" name="name" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="email">Correo electrónico</label>
+                            <input type="email" id="email" name="email" required>
+                        </div>
+                        
+                        <button type="submit" class="btn">Registrarme y Entrar</button>
+                    </form>
+                </div>
+                
+                <!-- Formulario para cliente registrado -->
+                <div id="returning-client-form" class="access-form">
+                    <form id="email-only-form">
+                        <div class="form-group">
+                            <label for="email-only">Correo electrónico registrado</label>
+                            <input type="email" id="email-only" name="email-only" required placeholder="Ingresa tu email registrado">
+                        </div>
+                        
+                        <button type="submit" class="btn">Acceder a mi cuenta</button>
+                    </form>
+                </div>
             </div>
             
             <!-- Información del Cliente -->
@@ -756,7 +782,7 @@
                     </button>
                 </div>
                 
-                <button id="back-to-register" class="btn btn-secondary">Volver al registro</button>
+                <button id="back-to-access" class="btn btn-secondary">Volver al acceso</button>
             </div>
             
             <!-- Premios del Cliente -->
@@ -803,7 +829,10 @@
                 
                 <!-- Sección Clientes -->
                 <div id="admin-clientes" class="admin-tab-content">
-                    <p>Gestión de clientes frecuentes</p>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                        <h3>Gestión de Clientes</h3>
+                        <button id="actualizar-clientes" class="btn">🔄 Actualizar Lista</button>
+                    </div>
                     
                     <div class="table-container">
                         <table id="clients-table">
@@ -834,15 +863,15 @@
                     </div>
                 </div>
                 
-                <!-- NUEVA SECCIÓN: Métricas -->
+                <!-- SECCIÓN: Métricas Simplificadas -->
                 <div id="admin-metricas" class="admin-tab-content" style="display: none;">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                        <h3>Métricas y Estadísticas</h3>
+                        <h3>Métricas del Sistema</h3>
                         <button id="actualizar-metricas" class="btn">🔄 Actualizar</button>
                     </div>
                     
                     <div id="metricas-container">
-                        <!-- Las métricas se cargarán aquí dinámicamente -->
+                        <!-- Las métricas simplificadas se cargarán aquí dinámicamente -->
                     </div>
                 </div>
                 

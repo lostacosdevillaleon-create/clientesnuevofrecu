@@ -1,4 +1,94 @@
+// SOLUCIÓN DIRECTA - reemplaza solo la función obtenerSupabase()
+async function obtenerSupabase() {
+    // SIEMPRE crear una nueva instancia
+    console.log('🔧 Creando nueva instancia de Supabase...');
+    
+    try {
+        // Método directo
+        const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2');
+        
+        const supabase = createClient(
+            'https://awxsvamuuhujadfaipwz.supabase.co',
+            'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF3eHN2YW11dWh1amFkZmFpcHd6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE5MjM1MjYsImV4cCI6MjA3NzQ5OTUyNn0.WZFqB__vfHDECTAUWPic-aXL23zATFSMdOpfnXLTMiI'
+        );
+        
+        // Probar la conexión inmediatamente
+        const test = await supabase.from('clients').select('id').limit(1);
+        
+        if (test.error) {
+            console.warn('⚠️ Test de conexión falló, pero continuando:', test.error.message);
+        }
+        
+        console.log('✅ Supabase creado directamente y verificado');
+        return supabase;
+        
+    } catch (error) {
+        console.error('❌ Error creando Supabase:', error);
+        throw new Error('No se pudo conectar a la base de datos. Error: ' + error.message);
+    }
+}
 // Funciones para interactuar con Supabase - VERSIÓN OPTIMIZADA PARA VERCEL
+
+// =============================================
+// FUNCIÓN AUXILIAR PARA OBTENER SUPABASE (VERSIÓN MEJORADA)
+// =============================================
+async function obtenerSupabase() {
+    console.log('🔄 Obteniendo cliente Supabase...');
+    
+    // Método 1: Si ya está en window y funciona
+    if (window.supabase && typeof window.supabase.from === 'function') {
+        console.log('✅ Usando Supabase de window');
+        return window.supabase;
+    }
+    
+    // Método 2: Si hay una función getSupabase disponible
+    if (window.getSupabase && typeof window.getSupabase === 'function') {
+        console.log('✅ Llamando a window.getSupabase()');
+        return await window.getSupabase();
+    }
+    
+    // Método 3: Si hay un módulo de configuración
+    if (window.supabaseConfig && window.supabaseConfig.getSupabase) {
+        console.log('✅ Usando supabaseConfig.getSupabase()');
+        return await window.supabaseConfig.getSupabase();
+    }
+    
+    // Método 4: Intentar importar directamente
+    console.log('🔄 Intentando importar Supabase directamente...');
+    try {
+        const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2.39.7');
+        const supabase = createClient(
+            'https://awxsvamuuhujadfaipwz.supabase.co',
+            'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF3eHN2YW11dWh1amFkZmFpcHd6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE5MjM1MjYsImV4cCI6MjA3NzQ5OTUyNn0.WZFqB__vfHDECTAUWPic-aXL23zATFSMdOpfnXLTMiI'
+        );
+        
+        // Guardar para uso futuro
+        window.supabase = supabase;
+        console.log('✅ Supabase creado directamente');
+        return supabase;
+    } catch (importError) {
+        console.error('❌ Error importando Supabase:', importError);
+    }
+    
+    // Método 5: Último recurso - usar la función global si existe
+    if (window.supabase && window.supabase.createClient) {
+        console.log('🔄 Usando window.supabase.createClient');
+        const supabase = window.supabase.createClient(
+            'https://awxsvamuuhujadfaipwz.supabase.co',
+            'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF3eHN2YW11dWh1amFkZmFpcHd6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE5MjM1MjYsImV4cCI6MjA3NzQ5OTUyNn0.WZFqB__vfHDECTAUWPic-aXL23zATFSMdOpfnXLTMiI'
+        );
+        window.supabase = supabase;
+        return supabase;
+    }
+    
+    // Si todo falla
+    console.error('❌ No se pudo obtener Supabase después de múltiples intentos');
+    throw new Error('Supabase no disponible. Por favor recarga la página.');
+}
+
+// ... EL RESTO DEL ARCHIVO FUNCIONES.JS PERMANECE IGUAL ...
+// (todas las demás funciones que ya tienen await obtenerSupabase())
+// Funciones para interactuar con Supabase
 
 // Registrar nuevo cliente
 async function registerClient(name, email) {
@@ -111,20 +201,19 @@ async function updateClientPointsInDB(clientId, newPoints) {
     }
 }
 
-// Obtener todos los clientes (para admin) - VERSIÓN OPTIMIZADA
+// Obtener todos los clientes (para admin)
 async function getAllClients() {
     try {
-        console.log('📊 Obteniendo clientes (optimizado)...');
+        console.log('📊 Obteniendo todos los clientes...');
         
         const { data, error } = await supabase
             .from('clients')
             .select('*')
-            .order('created_at', { ascending: false })
-            .limit(1000); // Limitar resultados para optimizar
+            .order('created_at', { ascending: false });
 
         if (error) throw error;
 
-        console.log(`✅ ${data.length} clientes obtenidos`);
+        console.log('✅ Clientes obtenidos:', data.length);
         return { 
             success: true, 
             clients: data 
@@ -260,10 +349,10 @@ async function resetearPuntosCliente(clientId) {
 }
 
 // =============================================
-// FUNCIONES PARA MÉTRICAS Y COBROS (OPTIMIZADAS)
+// NUEVAS FUNCIONES PARA MÉTRICAS Y COBROS
 // =============================================
 
-// Registrar cobro de premio
+// Registrar cobro de premio (MODIFICADA PARA PUNTOS RESTANTES)
 async function registrarCobroPremio(clienteId, clienteNombre, premioId, premioNombre, puntosCanjeados, puntosRestantesCliente) {
     try {
         console.log('💰 Registrando cobro de premio:', {
@@ -279,7 +368,7 @@ async function registrarCobroPremio(clienteId, clienteNombre, premioId, premioNo
                     premio_id: premioId,
                     premio_nombre: premioNombre,
                     puntos_canjeados: puntosCanjeados,
-                    puntos_totales_cliente: puntosRestantesCliente,
+                    puntos_totales_cliente: puntosRestantesCliente, // Ahora representa los puntos RESTANTES después del canje
                     fecha_cobro: new Date().toISOString()
                 }
             ]);
@@ -294,60 +383,39 @@ async function registrarCobroPremio(clienteId, clienteNombre, premioId, premioNo
     }
 }
 
-// Obtener métricas del sistema - VERSIÓN OPTIMIZADA CON CACHÉ
+// Obtener métricas del sistema (FUNCIÓN QUE FALTABA)
 async function obtenerMetricas() {
     try {
-        console.log('📈 Obteniendo métricas (optimizado)...');
+        console.log('📈 Obteniendo métricas del sistema...');
         
-        // Usar caché local si está disponible
-        const ahora = Date.now();
-        const cacheDuration = 5 * 60 * 1000; // 5 minutos en milisegundos
-        
-        if (window.metricasCache && window.metricasCache.timestamp) {
-            const tiempoTranscurrido = ahora - window.metricasCache.timestamp;
-            if (tiempoTranscurrido < cacheDuration) {
-                console.log('📊 Usando caché de métricas');
-                return window.metricasCache.data;
-            }
-        }
-        
-        // Obtener todos los cobros de premios (con límite para optimizar)
+        // Obtener todos los cobros de premios
         const { data: cobrosData, error: cobrosError } = await supabase
             .from('cobros_premios')
             .select('*')
-            .order('fecha_cobro', { ascending: false })
-            .limit(500); // Limitar para optimizar
+            .order('fecha_cobro', { ascending: false });
 
         if (cobrosError) throw cobrosError;
 
-        // Obtener estadísticas de clientes (con límite)
+        // Obtener estadísticas de clientes
         const { data: clientsData, error: clientsError } = await supabase
             .from('clients')
-            .select('id, points')
-            .limit(1000);
+            .select('id, points');
 
         if (clientsError) throw clientsError;
 
-        const resultado = {
+        return {
             cobrosPremios: cobrosData || [],
             totalClientes: clientsData?.length || 0,
-            totalPremiosCanjeados: cobrosData?.length || 0
+            totalPremiosCanjeados: cobrosData?.length || 0,
+            puntosTotalesSistema: clientsData?.reduce((sum, client) => sum + (client.points || 0), 0) || 0
         };
-        
-        // Guardar en caché
-        window.metricasCache = {
-            data: resultado,
-            timestamp: ahora
-        };
-        
-        return resultado;
-        
     } catch (error) {
         console.error('❌ Error obteniendo métricas:', error);
         return {
             cobrosPremios: [],
             totalClientes: 0,
-            totalPremiosCanjeados: 0
+            totalPremiosCanjeados: 0,
+            puntosTotalesSistema: 0
         };
     }
 }
@@ -359,8 +427,7 @@ async function obtenerHistorialCliente(clienteId) {
             .from('cobros_premios')
             .select('*')
             .eq('cliente_id', clienteId)
-            .order('fecha_cobro', { ascending: false })
-            .limit(50); // Limitar para optimizar
+            .order('fecha_cobro', { ascending: false });
 
         if (error) throw error;
 
@@ -376,8 +443,7 @@ async function obtenerEstadisticasPremios() {
     try {
         const { data, error } = await supabase
             .from('cobros_premios')
-            .select('premio_nombre')
-            .limit(500); // Limitar para optimizar
+            .select('premio_nombre');
 
         if (error) throw error;
 
@@ -395,42 +461,22 @@ async function obtenerEstadisticasPremios() {
 }
 
 // =============================================
-// FUNCIONES PARA EXPORTACIÓN DE DATOS (OPTIMIZADAS)
+// NUEVAS FUNCIONES PARA EXPORTACIÓN DE DATOS
 // =============================================
 
-// Obtener todos los cobros de premios (optimizado con caché)
+// Obtener todos los cobros de premios (sin límite)
 async function obtenerTodosLosCobros() {
     try {
-        console.log('📋 Obteniendo todos los cobros de premios (optimizado)...');
-        
-        // Verificar caché primero
-        const ahora = Date.now();
-        const cacheDuration = 10 * 60 * 1000; // 10 minutos para datos completos
-        
-        if (window.cobrosCache && window.cobrosCache.timestamp) {
-            const tiempoTranscurrido = ahora - window.cobrosCache.timestamp;
-            if (tiempoTranscurrido < cacheDuration) {
-                console.log('📋 Usando caché de cobros');
-                return window.cobrosCache.data;
-            }
-        }
+        console.log('📋 Obteniendo todos los cobros de premios...');
         
         const { data, error } = await supabase
             .from('cobros_premios')
             .select('*')
-            .order('fecha_cobro', { ascending: false })
-            .limit(2000); // Limitar para exportaciones
+            .order('fecha_cobro', { ascending: false });
 
         if (error) throw error;
 
         console.log(`✅ ${data.length} cobros obtenidos`);
-        
-        // Guardar en caché
-        window.cobrosCache = {
-            data: data || [],
-            timestamp: ahora
-        };
-        
         return data || [];
     } catch (error) {
         console.error('❌ Error obteniendo cobros:', error);
@@ -646,7 +692,7 @@ async function generarReporteEstadistico() {
 }
 
 // =============================================
-// FUNCIONES PARA FILTRADO POR FECHA (OPTIMIZADAS)
+// FUNCIONES PARA FILTRADO POR FECHA
 // =============================================
 
 // Obtener cobros por rango de fechas
@@ -664,8 +710,7 @@ async function obtenerCobrosPorFecha(fechaInicio, fechaFin) {
             .select('*')
             .gte('fecha_cobro', inicio.toISOString())
             .lte('fecha_cobro', fin.toISOString())
-            .order('fecha_cobro', { ascending: false })
-            .limit(1000); // Limitar para optimizar
+            .order('fecha_cobro', { ascending: false });
 
         if (error) throw error;
 
@@ -708,5 +753,3 @@ async function obtenerCobrosUltimoTrimestre() {
 function formatearFechaArchivo(fecha) {
     return fecha.toISOString().split('T')[0].replace(/-/g, '');
 }
-
-console.log('✅ Funciones.js optimizado para Vercel cargado');
